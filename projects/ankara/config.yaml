@@ -28,8 +28,8 @@ filters:
       tonundaki içerikler tercih edilmemeli; ciddi yerel haber önceliklidir.
 
 llm:
-  provider: gemini
-  model: gemini-2.5-flash
+  provider: claude
+  model: claude-haiku-4-5-20251001
 
 image:
   bg_color: "#0b1730"
