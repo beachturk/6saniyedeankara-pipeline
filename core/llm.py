@@ -93,6 +93,18 @@ def build_prompt(candidates: list[NewsItem], project_extra_rules: str, project_h
     return "\n".join(lines)
 
 
+def _raise_with_body(resp: requests.Response) -> None:
+    """resp.raise_for_status() hata govdesini (API'nin gercek hata mesajini)
+    gizliyor - GitHub Actions loglarinda sadece "400/429 Client Error" gorunup
+    asil sebep (kota, kredi, gecersiz model, vb.) kayboluyordu. Bu, HTTPError'i
+    yanit govdesiyle birlikte firlatir ki log'da gercek mesaj gorulsun."""
+    if resp.status_code >= 400:
+        raise requests.exceptions.HTTPError(
+            f"{resp.status_code} {resp.reason} - yanit govdesi: {resp.text[:2000]}",
+            response=resp,
+        )
+
+
 def _call_gemini(prompt: str, model: str) -> str:
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
@@ -103,7 +115,7 @@ def _call_gemini(prompt: str, model: str) -> str:
         "generationConfig": {"temperature": 0.4, "response_mime_type": "application/json"},
     }
     resp = requests.post(url, json=body, timeout=60)
-    resp.raise_for_status()
+    _raise_with_body(resp)
     data = resp.json()
     return data["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -121,7 +133,7 @@ def _call_groq(prompt: str, model: str) -> str:
         "temperature": 0.4,
     }
     resp = requests.post(url, headers=headers, json=body, timeout=60)
-    resp.raise_for_status()
+    _raise_with_body(resp)
     data = resp.json()
     return data["choices"][0]["message"]["content"]
 
@@ -142,7 +154,7 @@ def _call_claude(prompt: str, model: str) -> str:
         "messages": [{"role": "user", "content": prompt}],
     }
     resp = requests.post(url, headers=headers, json=body, timeout=60)
-    resp.raise_for_status()
+    _raise_with_body(resp)
     data = resp.json()
     return data["content"][0]["text"]
 
