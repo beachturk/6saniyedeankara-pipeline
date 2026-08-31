@@ -11,7 +11,11 @@ import time
 import requests
 
 GRAPH_VERSION = "v21.0"
-GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_VERSION}"
+# ONEMLI: bu proje "Instagram API with Instagram Login" (IGAA... on ekli token,
+# dogrudan Instagram Business Login ile alinan) kullaniyor. Bu token turu SADECE
+# graph.instagram.com tarafindan taniniyor - graph.facebook.com'a gonderilirse
+# Meta "Cannot parse access token" hatasi doner (token gecerli olsa bile).
+GRAPH_BASE = f"https://graph.instagram.com/{GRAPH_VERSION}"
 
 
 class PublishError(RuntimeError):
