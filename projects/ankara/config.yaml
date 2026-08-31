@@ -1,0 +1,45 @@
+display_name: "6 Saniyede Ankara"
+handle: "@6saniyedeankara"
+hashtag: "#Ankara #6SaniyedeAnkara"
+
+output_type: video   # "video" (6 saniyelik Reels, marka adına uygun) | "image" (statik feed post)
+video:
+  # duration_s belirtilmedi -> özet metninin uzunluğuna göre otomatik hesaplanır
+  # (kelime kelime yazma efekti bitene kadar), min 6, max_duration_s'i geçmez.
+  max_duration_s: 10
+  fps: 30
+
+rss_sources:
+  - key: haberler
+    url: "https://rss.haberler.com/rssnew.aspx?kategori=ankara"
+  - key: haberankara
+    url: "https://www.haberankara.com/rss"
+  - key: yeniankara
+    url: "https://www.yeniankara.com.tr/export/rss"
+
+filters:
+  max_age_hours: 36
+  candidate_limit: 10
+  extra_rules: |
+    - Sadece Ankara ili/ilçeleri veya doğrudan Ankara'yı ilgilendiren kurum/kişilerle
+      (ör. MSB, Dışişleri Bakanlığı açıklamaları) ilgili haberler seçilir.
+    - Ankara'ya özgü olmayan genel/ulusal haberler (yerel bağlantısı olmayan) ELENİR.
+    - "Semicenk konserinde kavga" gibi görseli olmayan ya da dedikodu/magazin
+      tonundaki içerikler tercih edilmemeli; ciddi yerel haber önceliklidir.
+
+llm:
+  provider: gemini
+  model: gemini-2.5-flash
+
+image:
+  bg_color: "#0b1730"
+  badge_color: "#e63946"
+  badge_text_color: "#ffffff"
+  headline_color: "#ffffff"
+  summary_color: "#c9d3e0"
+  handle_color: "#5c6b84"
+  photo_height_ratio: 0.58
+
+instagram:
+  business_id: "${IG_BUSINESS_ID_ANKARA}"
+  access_token: "${IG_ACCESS_TOKEN_ANKARA}"

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.local.json
+
+# yerel test ciktisi, repoya girmesin
+ornek_video_v1.mp4

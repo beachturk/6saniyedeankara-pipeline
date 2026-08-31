@@ -1,0 +1,106 @@
+name: İçerik üretim ve Instagram yayın pipeline'ı
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # her 30 dakikada bir dener; taze/uygun aday yoksa sessizce hiçbir şey yapmaz
+  workflow_dispatch:          # Actions sekmesinden manuel tetikleme için
+
+permissions:
+  contents: write
+
+concurrency:
+  group: content-pipeline
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.list.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          projects=$(ls projects | grep -v '^_' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "projects=$projects" >> "$GITHUB_OUTPUT"
+          echo "Bulunan projeler: $projects"
+
+  run-pipeline:
+    needs: discover
+    if: needs.discover.outputs.projects != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1        # aynı repoya art arda push edileceği için projeler sırayla çalışır
+      fail-fast: false
+      matrix:
+        project: ${{ fromJson(needs.discover.outputs.projects) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bağımlılıkları kur
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg
+          pip install -r requirements.txt
+
+      - name: Git kimliği ayarla
+        run: |
+          git config user.name "content-pipeline-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      # Her proje "IG_ACCESS_TOKEN_<PROJE_ANAHTARI_BUYUK>" ve
+      # "IG_BUSINESS_ID_<PROJE_ANAHTARI_BUYUK>" adında GitHub Secret'larını
+      # bekler (bkz. README.md "Yeni proje ekleme"). Proje anahtarını büyük
+      # harfe çevirip aşağıdaki adımlarda kullanabilmek için env'e yazıyoruz.
+      - name: Proje anahtarını normalize et
+        run: |
+          echo "PROJECT_UPPER=$(echo '${{ matrix.project }}' | tr '[:lower:]' '[:upper:]')" >> "$GITHUB_ENV"
+
+      - name: IG secret'larını bu proje için çöz
+        env:
+          RESOLVED_TOKEN: ${{ secrets[format('IG_ACCESS_TOKEN_{0}', env.PROJECT_UPPER)] }}
+          RESOLVED_BUSINESS_ID: ${{ secrets[format('IG_BUSINESS_ID_{0}', env.PROJECT_UPPER)] }}
+        run: |
+          {
+            echo "IG_ACCESS_TOKEN_${PROJECT_UPPER}=${RESOLVED_TOKEN}"
+            echo "IG_BUSINESS_ID_${PROJECT_UPPER}=${RESOLVED_BUSINESS_ID}"
+          } >> "$GITHUB_ENV"
+
+      - name: 1) İçerik üret (RSS -> LLM -> görsel)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/run.py generate --project "${{ matrix.project }}"
+
+      - name: 2) Üretilen görseli commit + push et (public URL olması için)
+        id: commit_image
+        run: |
+          git add "public/${{ matrix.project }}"
+          if git diff --cached --quiet; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "content(${{ matrix.project }}): yeni görsel"
+            git pull --rebase
+            git push
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 3) Instagram'a yayınla
+        if: steps.commit_image.outputs.committed == 'true'
+        run: python scripts/run.py publish --project "${{ matrix.project }}"
+
+      - name: 4) state.csv güncellemesini commit + push et
+        if: steps.commit_image.outputs.committed == 'true'
+        run: |
+          git add "projects/${{ matrix.project }}/state.csv"
+          if ! git diff --cached --quiet; then
+            git commit -m "state(${{ matrix.project }}): paylaşım kaydı"
+            git pull --rebase
+            git push
+          fi

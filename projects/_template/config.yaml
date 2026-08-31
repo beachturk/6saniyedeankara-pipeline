@@ -1,0 +1,52 @@
+# YENİ BİR PROJE EKLEMEK İÇİN:
+#   1. Bu klasörü kopyalayıp projects/<yeni-proje-anahtari>/ olarak yeniden adlandırın
+#      (anahtar: küçük harf, boşluksuz, örn. "izmir").
+#   2. Aşağıdaki alanları doldurun.
+#   3. GitHub'da şu secret'ları ekleyin (README.md'deki "Yeni proje ekleme" bölümüne bakın):
+#        IG_ACCESS_TOKEN_<ANAHTAR-BÜYÜK>
+#        IG_BUSINESS_ID_<ANAHTAR-BÜYÜK>
+#   4. .github/workflows/pipeline.yml içindeki proje listesine anahtarı ekleyin.
+#   5. Boş bir state.csv dosyası bırakın (ya da önceden paylaşılmış içerikleri
+#      guid,date,title,instagram_url,timestamp formatında ekleyin ki tekrar paylaşılmasın).
+
+display_name: "Örnek Proje"
+handle: "@kullanici_adi"          # görselin altına yazılacak Instagram kullanıcı adı
+hashtag: "#Ornek"                  # caption'da mutlaka geçmesi istenen proje hashtag'i
+
+output_type: video   # "video" (kısa animasyonlu Reels) | "image" (statik feed post, daha basit/hızlı)
+video:                # sadece output_type: video ise kullanılır
+  # duration_s vermezseniz özet metninin uzunluğuna göre otomatik hesaplanır
+  # (kelime kelime yazma efekti bitene kadar sürer, min 6sn, max_duration_s'i geçmez).
+  # Sabit bir süre isterseniz: duration_s: 6
+  max_duration_s: 10
+  fps: 30
+
+rss_sources:
+  - key: kaynak1
+    url: "https://example.com/rss"
+  # - key: kaynak2
+  #   url: "https://example2.com/feed"
+
+filters:
+  max_age_hours: 36        # bu süreden eski haberler "taze aday" sayılmaz (fallback modu devreye girer)
+  candidate_limit: 10       # LLM'e en fazla kaç aday gönderilsin
+  extra_rules: |
+    (İsteğe bağlı) Bu projeye özel ek seçim/üretim kuralları buraya yazılabilir,
+    örn. "Sadece X ili ile ilgili haberler", "Spor haberlerini de dahil et" vb.
+
+llm:
+  provider: gemini          # gemini | groq | claude
+  model: gemini-2.5-flash   # boş bırakılırsa sağlayıcının varsayılan modeli kullanılır
+
+image:
+  bg_color: "#0b1730"
+  badge_color: "#e63946"
+  badge_text_color: "#ffffff"
+  headline_color: "#ffffff"
+  summary_color: "#c9d3e0"
+  handle_color: "#5c6b84"
+  photo_height_ratio: 0.58
+
+instagram:
+  business_id: "${IG_BUSINESS_ID_TEMPLATE}"
+  access_token: "${IG_ACCESS_TOKEN_TEMPLATE}"
