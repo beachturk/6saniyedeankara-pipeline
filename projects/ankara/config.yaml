@@ -36,9 +36,12 @@ image:
   badge_color: "#e63946"
   badge_text_color: "#ffffff"
   headline_color: "#ffffff"
-  summary_color: "#c9d3e0"
-  handle_color: "#5c6b84"
-  photo_height_ratio: 0.58
+  # summary_color, handle_color, photo_height_ratio artik core/image_gen.py
+  # DEFAULTS'tan geliyor (2026-08-31 kalite duzeltmesi): fotograf artik TAM
+  # EKRAN (photo_height_ratio: 1.0 - eskiden 0.58 idi, alt kisim bos/lacivert
+  # kaliyordu), summary/handle renkleri daha parlak/okunakli beyaza cekildi
+  # (eskiden donuk gri-mavi #c9d3e0 / #5c6b84 idi - "renk tonu guzel degil"
+  # sikayeti).
 
 instagram:
   business_id: "${IG_BUSINESS_ID_ANKARA}"

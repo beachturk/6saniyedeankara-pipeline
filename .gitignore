@@ -7,3 +7,6 @@ venv/
 
 # yerel test ciktisi, repoya girmesin
 ornek_video_v1.mp4
+
+# demo/onizleme ciktilari (bu oturumda uretilen ornek gorsel/video), repoya girmesin
+demo_output/

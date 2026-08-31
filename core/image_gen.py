@@ -25,14 +25,15 @@ DEFAULTS = {
     "badge_text_color": "#ffffff",
     "headline_color": "#ffffff",
     "headline_panel_color": "#000000",
-    "headline_panel_opacity": 0.62,
-    "summary_color": "#eef1f6",
+    "headline_panel_opacity": 0.68,     # eskiden 0.62 - foto artık daha az soluklaştırıldığı için panel biraz daha koyu
+    "summary_color": "#ffffff",         # eskiden #eef1f6 / #f5f7fb - artik tam/en acik beyaz (kullanici istegi)
     "summary_panel_color": "#000000",
-    "summary_panel_opacity": 0.55,     # şeffaf, bir tık koyu
-    "handle_color": "#c9d3e0",
-    "photo_height_ratio": 0.94,        # fotoğraf neredeyse tüm kareyi kaplıyor (tam ekran haber fotoğrafı)
-    "photo_crop_focus_y": 0.32,         # kırpma odak noktası yukarıda (konu/yüz kesilmesin)
-    "photo_dim_opacity": 0.30,          # fotoğrafın TAMAMINA hafif koyu ton — hangi fotoğraf gelirse gelsin metin okunsun
+    "summary_panel_opacity": 0.62,      # eskiden 0.55 - aynı sebep
+    "handle_color": "#e7ebf2",           # eskiden #c9d3e0 (donuk gri-mavi) - artık daha net/okunaklı
+    "photo_height_ratio": 1.0,           # ARTIK TAM EKRAN - eskiden 0.94/0.58 altta boşluk/lacivert dolgu bırakıyordu
+    "photo_crop_focus_y": 0.32,          # kırpma odak noktası yukarıda (konu/yüz kesilmesin)
+    "photo_dim_opacity": 0.10,           # eskiden 0.30 - fotoğraf artık gereksiz soluklaştırılmıyor
+    "text_zone_ratio": 0.5,              # üst gradientin kapladığı oran (rozet+başlık+özet bölgesi)
 }
 
 
@@ -149,31 +150,47 @@ def compose_layers(
     canvas = Image.new("RGB", (CANVAS_W, CANVAS_H), cfg["bg_color"])
     draw = ImageDraw.Draw(canvas)
 
-    # --- Fotoğraf: gerçek haber görseli, neredeyse tam ekran, hafif zoom ---
-    photo_h = int(CANVAS_H * cfg["photo_height_ratio"])
+    # --- Fotoğraf: ARTIK TÜM EKRANI kaplıyor (kullanıcı şikayeti: "resim üst
+    # kısımda, alt kısım boşluk gibi" — eskiden photo_height_ratio ~0.58 ile
+    # fotoğraf sadece üstteydi, altı düz lacivert dolguydu). _fit_focus_top
+    # oranı koruyarak kırpıp doldurur — asla GERİLMEZ/bozulmaz, sadece kadraj
+    # kırpılır (kalite kaybı yok).
+    photo_h = CANVAS_H
     fitted = _fit_focus_top(photo, (CANVAS_W, photo_h), cfg["photo_crop_focus_y"], zoom=zoom)
     canvas.paste(fitted, (0, 0))
 
-    # Fotoğrafın TAMAMINA hafif koyu ton — hangi fotoğraf gelirse gelsin (parlak/
-    # yoğun renkli/karmaşık olsa bile) üzerindeki metin okunabilir kalsın.
-    dim_opacity = cfg.get("photo_dim_opacity", 0.30)
+    # Fotoğrafın TAMAMINA ÇOK hafif koyu ton — eskiden 0.30 idi ve fotoğrafı
+    # gereksiz yere soluklaştırıyordu ("kalite bozulmadan tüm ekran" şikayeti).
+    # Artık sadece hafif bir doygunluk ayarı (varsayılan 0.10); asıl metin
+    # okunurluğu aşağıdaki hedefli üst-gradient + panellerin kendi yarı-saydam
+    # arka planından geliyor.
+    dim_opacity = cfg.get("photo_dim_opacity", 0.10)
     if dim_opacity > 0:
         dim_layer = Image.new("RGB", (CANVAS_W, photo_h), "#000000")
         canvas.paste(Image.blend(canvas.crop((0, 0, CANVAS_W, photo_h)), dim_layer, dim_opacity), (0, 0))
 
-    # Fotoğrafın alt kısmında EKSTRA koyulaşan gradient — özet paneli için
-    grad_h = int(photo_h * 0.5)
-    grad_top = photo_h - grad_h
-    gradient = Image.new("L", (1, grad_h), 0)
-    for gy in range(grad_h):
-        t = gy / grad_h
-        gradient.putpixel((0, gy), int(200 * (t ** 1.6)))
-    gradient = gradient.resize((CANVAS_W, grad_h))
-    dark_overlay = Image.new("RGB", (CANVAS_W, grad_h), "#000000")
-    canvas.paste(dark_overlay, (0, grad_top), gradient)
+    # SADECE üst bölgede (rozet+başlık+özet metninin olduğu alan) ekstra
+    # koyulaşan gradient — metin her zaman okunur, fotoğrafın geri kalanı
+    # (alt ~yarısı) tamamen net/canlı kalır.
+    text_zone_h = int(CANVAS_H * cfg.get("text_zone_ratio", 0.5))
+    gradient = Image.new("L", (1, text_zone_h), 0)
+    for gy in range(text_zone_h):
+        t = 1 - (gy / text_zone_h)
+        gradient.putpixel((0, gy), int(190 * (t ** 1.4)))
+    gradient = gradient.resize((CANVAS_W, text_zone_h))
+    dark_overlay = Image.new("RGB", (CANVAS_W, text_zone_h), "#000000")
+    canvas.paste(dark_overlay, (0, 0), gradient)
 
-    if photo_h < CANVAS_H:
-        draw.rectangle([0, photo_h, CANVAS_W, CANVAS_H], fill=cfg["bg_color"])
+    # Alt kenarda hesap adı (@handle) için hafif bir zemin gradienti — fotoğraf
+    # o bölgede parlak/karışık olsa bile handle okunsun diye.
+    handle_grad_h = 160
+    hg = Image.new("L", (1, handle_grad_h), 0)
+    for gy in range(handle_grad_h):
+        t = gy / handle_grad_h
+        hg.putpixel((0, gy), int(150 * (t ** 1.6)))
+    hg = hg.resize((CANVAS_W, handle_grad_h))
+    handle_dark = Image.new("RGB", (CANVAS_W, handle_grad_h), "#000000")
+    canvas.paste(handle_dark, (0, CANVAS_H - handle_grad_h), hg)
 
     margin = 56
     max_text_w = CANVAS_W - margin * 2
@@ -211,11 +228,25 @@ def compose_layers(
     )
 
     # --- Başlık — ÜST kısımda, kendi (kırmızı/siyah) panelinin üzerinde, pop-in ---
-    headline_font = _font("ExtraBold", 50)
-    headline_lines = _wrap_to_width(draw, headline, headline_font, max_text_w - 80)[:3]
+    # ÖNEMLİ: eskiden burada satırlar SERT [:3]/[:4] ile kesiliyordu — başlık
+    # bu satır sayısını aşarsa fazla kelime(ler) SESSİZCE kayboluyordu (aynı
+    # aile bug'ı özet panelinde de vardı). Artık özetteki mantığın AYNISI:
+    # önce varsayılan puntoyla satırlara bölünür; 4 satırdan fazla geliyorsa
+    # punto kademeli küçültülüp yeniden bölünür — en küçük puntoda bile
+    # sığmıyorsa (aşırı uzun başlık) TÜM satırlar yine de çizilir, hiçbir
+    # kelime/harf kaybolmaz, cümle her zaman tam biter.
+    headline_font_size = 50
+    min_headline_font_size = 36
+    max_headline_lines = 4
+    while True:
+        headline_font = _font("ExtraBold", headline_font_size)
+        headline_lines = _wrap_to_width(draw, headline, headline_font, max_text_w - 80)
+        if len(headline_lines) <= max_headline_lines or headline_font_size <= min_headline_font_size:
+            break
+        headline_font_size -= 2
     headline_bottom_y = badge_y + badge_h + 34   # başlık yoksa bile açıklama için makul bir varsayılan
     if headline_lines:
-        line_h = 60
+        line_h = int(headline_font_size * 1.2)
         pad_x_h, pad_y_h = 40, 28
         panel_w = min(int(max(draw.textlength(l, font=headline_font) for l in headline_lines)) + pad_x_h * 2,
                       CANVAS_W - margin)
@@ -246,8 +277,8 @@ def compose_layers(
     # kalmış"). Artık hiçbir kelime kaybolmuyor: önce varsayılan punto ile
     # satırlara bölünüyor; sığmıyorsa (dikey alan yetmiyorsa) punto kademeli
     # küçültülüp yeniden bölünüyor — metin her zaman TAM görünür.
-    summary_font_size = 33
-    min_summary_font_size = 22
+    summary_font_size = 36        # eskiden 33 - kullanıcı isteği: "bi tık font büyütülebilir"
+    min_summary_font_size = 24    # eskiden 22 - en küçük puntoda bile rahat okunsun
     available_bottom = CANVAS_H - 110  # alt bilgi (hesap adı) için ayrılan pay
     summary_panel_top = headline_bottom_y + 24
     while True:
