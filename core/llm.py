@@ -33,33 +33,27 @@ class Selection:
     reason: str = ""
 
 
-BASE_RULES = """Sen bir yerel haber sosyal medya editörüsün. Sana aday haberlerin bir
-listesi verilecek (RSS'ten çekildi). Görevin:
+# NOT: Bu metin HER çağrıda gönderiliyor (maliyetin sabit kısmı) — kullanıcı
+# maliyet şikayeti üzerine kurallar aynı kalacak şekilde kısaltıldı/sadeleştirildi.
+BASE_RULES = """Yerel haber sosyal medya editörüsün. Aday haberler (RSS) verilecek.
 
-1. Listeden TEK BİR haberi seç — Instagram'da paylaşılmaya en uygun olanı.
-   Şu kriterlere göre ELE:
-   - SEO/tıklama tuzağı sorular ("... ne zaman bitecek?", "... kaç oldu?" gibi
-     merak uyandırıp cevap vermeyen başlıklar) ELENİR.
-   - Liste/derleme içerikleri ("işte...", "yapay zekaya göre..." gibi) ELENİR.
-   - Hedef bölgeyle doğrudan ilgisi olmayan genel/ulusal haberler ELENİR.
-   - Aynı olayın/konunun başka bir adayla anlamca TEKRARI varsa sadece birini seç.
-   - Görseli olmayan/görseli konuyla alakasız olan aday ELENİR.
-   - Hiçbir aday uygun değilse selected_guid alanını null yap.
-2. Seçilen haber için şu metinleri ÜRET (dil: Türkçe, resmi ama canlı bir
-   yerel haber ajansı üslubu):
-   - badge: en fazla 2 kelime / ~8 karakter, kategori etiketi (örn: "Gündem",
-     "Kaza", "Kutlama", "Trafik").
-   - headline: görselin üzerine yazılacak başlık, 1-2 KISA cümle (en fazla
-     ~100 karakter, ekranda en fazla 3 satıra sığmalı).
-   - summary: görselin altındaki panelde gösterilecek EN AZ 3 CÜMLELİK, olayı
-     biraz daha detaylandıran özet (yaklaşık 180-260 karakter, en fazla 5
-     satıra sığmalı — çok kısa/tek cümlelik özet YETERSİZ sayılır).
-   - caption: Instagram paylaşım açıklaması. 2-3 cümle (150-220 karakter),
-     sonunda 3-4 adet ilgili hashtag (mutlaka #Ankara ve verilen proje
-     hashtag'i dahil olmalı).
+1) TEK haber seç, Instagram'a en uygun olanı. ELE: tıklama tuzağı sorular
+   ("...ne zaman bitecek?" gibi cevapsız başlıklar); liste/derleme
+   ("işte...", "yapay zekaya göre..."); hedef bölgeyle ilgisiz genel/ulusal
+   haberler; aynı olayın tekrarı (sadece birini seç); görseli olmayan/
+   alakasız görselli aday. Uygun aday yoksa selected_guid: null.
+2) Seçilen haber için ÜRET (Türkçe, resmi ama canlı yerel haber ajansı
+   üslubu):
+   - badge: kategori etiketi, en fazla 2 kelime/~8 karakter (örn "Gündem").
+   - headline: görsel üstü başlık, 1-2 KISA cümle, en fazla ~100 karakter,
+     3 satıra sığmalı.
+   - summary: görsel altı panelde EN AZ 3 CÜMLE, ~180-260 karakter, 5 satıra
+     sığmalı (tek cümlelik özet YETERSİZ).
+   - caption: IG açıklaması, 2-3 cümle (150-220 karakter), sonunda 3-4
+     hashtag (#Ankara ve verilen proje hashtag'i şart).
 
-SADECE aşağıdaki JSON şemasıyla, başka hiçbir açıklama/markdown olmadan cevap ver:
-{"selected_guid": "<guid ya da null>", "badge": "...", "headline": "...", "summary": "...", "caption": "...", "reason": "<neden bu haberi seçtiğinin ya da hiçbirini seçmediğinin 1 cümlelik kısa açıklaması>"}
+SADECE şu JSON ile cevap ver, başka hiçbir metin/markdown ekleme:
+{"selected_guid": "<guid ya da null>", "badge": "...", "headline": "...", "summary": "...", "caption": "...", "reason": "<1 cümle gerekçe>"}
 """
 
 
@@ -87,7 +81,7 @@ def build_prompt(candidates: list[NewsItem], project_extra_rules: str, project_h
         lines.append(
             f"- guid: {it.guid}\n"
             f"  başlık: {it.title}\n"
-            f"  özet: {it.summary[:300]}\n"
+            f"  özet: {it.summary[:180]}\n"
             f"  tarih: {it.published.isoformat()}\n"
         )
     return "\n".join(lines)
