@@ -66,9 +66,17 @@ jobs:
           RESOLVED_TOKEN: ${{ secrets[format('IG_ACCESS_TOKEN_{0}', env.PROJECT_UPPER)] }}
           RESOLVED_BUSINESS_ID: ${{ secrets[format('IG_BUSINESS_ID_{0}', env.PROJECT_UPPER)] }}
         run: |
+          # Secret degerleri kopyala-yapistir sirasinda bazen sondaki bir
+          # newline/bosluk ile birlikte gelebiliyor; bu, GITHUB_ENV'e
+          # yazilirken degeri bozup Graph API'nin "Cannot parse access
+          # token" hatasi vermesine yol aciyordu. Guvenlik icin tum
+          # bosluk/newline karakterlerini temizliyoruz (token'larda zaten
+          # bosluk olmamali).
+          CLEAN_TOKEN=$(printf '%s' "$RESOLVED_TOKEN" | tr -d '[:space:]')
+          CLEAN_BUSINESS_ID=$(printf '%s' "$RESOLVED_BUSINESS_ID" | tr -d '[:space:]')
           {
-            echo "IG_ACCESS_TOKEN_${PROJECT_UPPER}=${RESOLVED_TOKEN}"
-            echo "IG_BUSINESS_ID_${PROJECT_UPPER}=${RESOLVED_BUSINESS_ID}"
+            echo "IG_ACCESS_TOKEN_${PROJECT_UPPER}=${CLEAN_TOKEN}"
+            echo "IG_BUSINESS_ID_${PROJECT_UPPER}=${CLEAN_BUSINESS_ID}"
           } >> "$GITHUB_ENV"
 
       - name: 1) İçerik üret (RSS -> LLM -> görsel)
