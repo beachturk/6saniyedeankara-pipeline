@@ -62,8 +62,15 @@ def generate(project_key: str) -> dict | None:
     output_filename = _safe_filename(chosen.guid, ext)
     output_path = cfg.public_dir / output_filename
 
+    # Gorsel kalitesi sikayeti uzerine: RSS thumbnail'i genelde kucuk (~300x170)
+    # oluyor ve bunu 1080x1804'e buyutmek belirgin bulaniklik/bozulmaya yol
+    # aciyordu. Once haberin kendi sayfasindaki og:image'i (genelde cok daha
+    # yuksek cozunurluklu) denenir; bulunamazsa RSS'in orijinal image_url'ine
+    # geri duser.
+    photo_url = rss_fetch.fetch_higher_res_image(chosen.link) or chosen.image_url
+
     common_kwargs = dict(
-        photo_url=chosen.image_url,
+        photo_url=photo_url,
         badge=selection.badge,
         headline=selection.headline,
         summary=selection.summary,

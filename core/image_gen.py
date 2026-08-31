@@ -329,5 +329,5 @@ def render(
     photo = download_image(photo_url)
     canvas = compose_layers(photo, badge, headline, summary, handle, cfg, badge_pulse=1.0)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(output_path, "JPEG", quality=92)
+    canvas.save(output_path, "JPEG", quality=96, subsampling=0)
     return output_path

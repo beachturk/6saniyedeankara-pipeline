@@ -9,10 +9,46 @@ from html import unescape
 from typing import Optional
 
 import feedparser
+import requests
 from dateutil import parser as dateparser
 
 _IMG_SRC_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
+
+_OG_IMAGE_RE = re.compile(
+    r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
+_OG_IMAGE_RE_ALT = re.compile(
+    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+    re.IGNORECASE,
+)
+
+
+def fetch_higher_res_image(link: str, timeout: int = 10):
+    """RSS'teki kucuk thumbnail yerine, haberin kendi sayfasindaki og:image
+    meta etiketinden (genelde cok daha yuksek cozunurluklu "hero" gorsel)
+    URL ceker. Bulamazsa/basarisiz olursa None doner - cagiran taraf bu
+    durumda RSS'in orijinal (kucuk) image_url'ine geri dusmeli. Gorsel
+    kalitesi sikayeti uzerine eklendi: RSS thumbnail'leri cogu zaman cok
+    kucuk (or. ~300x170) ve bunlari 1080x1804'e buyutmek belirgin
+    bulaniklik/bozulmaya yol aciyordu."""
+    if not link:
+        return None
+    try:
+        resp = requests.get(
+            link, timeout=timeout,
+            headers={"User-Agent": "Mozilla/5.0 (content-pipeline)"},
+        )
+        resp.raise_for_status()
+        html = resp.text
+    except Exception:
+        return None
+    m = _OG_IMAGE_RE.search(html) or _OG_IMAGE_RE_ALT.search(html)
+    if m:
+        return unescape(m.group(1))
+    return None
+
 
 
 @dataclass

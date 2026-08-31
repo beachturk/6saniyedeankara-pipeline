@@ -112,7 +112,16 @@ def _call_gemini(prompt: str, model: str) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.4, "response_mime_type": "application/json"},
+        # thinkingBudget: 0 -> Gemini 2.5 modellerinde varsayilan olarak
+        # ACIK olan "thinking" (gizli akil yurutme) adimini kapatir. Bu
+        # gizli tokenlar normal output token fiyatindan faturalaniyor ve
+        # bu kucuk/basit gorev icin gereksiz maliyetin asil sebebiydi
+        # (kullanici sikayeti: "0.02 dolar cok fazla").
+        "generationConfig": {
+            "temperature": 0.4,
+            "response_mime_type": "application/json",
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }
     resp = requests.post(url, json=body, timeout=60)
     _raise_with_body(resp)

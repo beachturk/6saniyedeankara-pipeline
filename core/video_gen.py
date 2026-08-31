@@ -18,6 +18,7 @@ from . import image_gen
 
 DEFAULT_FPS = 30
 DEFAULT_DURATION_S = 6.0
+ABSOLUTE_MAX_DURATION_S = 30.0  # asla asilmayacak son guvenlik tavani (metin kesilmesin diye normal max_duration_s artik yumusak)
 AUDIO_FADE_OUT_S = 0.5
 AUDIO_VOLUME = 0.85  # arka plan sesi biraz kısılıyor, tamamen baskın olmasın diye
 
@@ -66,13 +67,24 @@ def _progress(t: float, start: float, end: float) -> float:
 def compute_duration(summary: str, min_duration_s: float = DEFAULT_DURATION_S,
                       max_duration_s: float = 10.0) -> float:
     """Özet metni ne kadar uzunsa video da (kelime kelime yazma efektine yer
-    açmak için) o kadar uzar — ama min_duration_s'in altına inmez, sabit bir
-    tavanın (max_duration_s) üstüne de çıkmaz."""
+    açmak için) o kadar uzar — min_duration_s'in altına inmez.
+
+    ÖNEMLİ: metin ASLA yarım kesilmemeli (kullanıcı şikayeti: "metin yarım
+    kalmış"). Bu yüzden burada max_duration_s bir SERT TAVAN değil — sadece
+    ihtiyaç zaten ondan kısaysa uygulanan bir referans değeridir. İhtiyaç
+    (needed) max_duration_s'i aşarsa video KISALTILMAZ, video UZAR. Aşırı
+    uzun bir özet (LLM hatası vb.) videoyu makul olmayan şekilde uzatırsa
+    diye yine de bir güvenlik tavanı (ABSOLUTE_MAX_DURATION_S) var — ama bu
+    normal şartlarda (BASE_RULES'daki özet uzunluk kuralına uyulduğu sürece)
+    hiç devreye girmemeli."""
     word_count = len(summary.split())
     typing_duration = max(MIN_TYPING_DURATION, word_count / TYPING_WORDS_PER_SECOND)
     type_start = SUMMARY_PANEL_START + SUMMARY_PANEL_POP_DURATION
     needed = type_start + typing_duration + HOLD_AFTER_TYPING
-    return max(min_duration_s, min(needed, max_duration_s))
+    if needed > max_duration_s:
+        print(f"[video_gen] Not: özet metni {max_duration_s:.1f}sn'lik hedefe sığmıyor, "
+              f"metin yarım kalmasın diye video {needed:.1f}sn'ye uzatıldı.")
+    return max(min_duration_s, min(needed, ABSOLUTE_MAX_DURATION_S))
 
 
 def _frame_params(t: float, duration: float, summary_word_count: int) -> dict:
@@ -135,7 +147,7 @@ def render_video(
             frame = image_gen.compose_layers(
                 photo, badge, headline, summary, handle, cfg, **params,
             )
-            frame.save(tmp / f"frame_{i:05d}.jpg", quality=90)
+            frame.save(tmp / f"frame_{i:05d}.jpg", quality=97, subsampling=0)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         sound_file = pick_random_sound(sounds_dir)
@@ -152,7 +164,7 @@ def render_video(
                 "-i", str(tmp / "frame_%05d.jpg"),
                 "-stream_loop", "-1", "-i", str(sound_file),
                 "-shortest",
-                "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
+                "-c:v", "libx264", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
                 "-filter:a", f"volume={AUDIO_VOLUME},afade=t=out:st={fade_start:.2f}:d={AUDIO_FADE_OUT_S}",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart",
@@ -167,7 +179,7 @@ def render_video(
                 "-i", str(tmp / "frame_%05d.jpg"),
                 "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                 "-shortest",
-                "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
+                "-c:v", "libx264", "-profile:v", "high", "-crf", "18", "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart",
                 "-r", str(fps),
