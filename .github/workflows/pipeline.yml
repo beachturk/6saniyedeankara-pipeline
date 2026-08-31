@@ -2,7 +2,12 @@ name: İçerik üretim ve Instagram yayın pipeline'ı
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # her 30 dakikada bir dener; taze/uygun aday yoksa sessizce hiçbir şey yapmaz
+    # Saat basi/yarisi (:00/:30) GitHub'da en yogun aninlar oldugu icin cron'u
+    # kaydirilmis dakikalara (:07/:37) aldik - GitHub'in resmi dokumani bunu
+    # oneriyor, gecikme/atlama riskini azaltir. (2026-08-31: schedule bir
+    # sure hic tetiklenmedi, dosyaya bu dokunus GitHub'in schedule kaydini
+    # tazelemesi icin de yapildi.)
+    - cron: "7,37 * * * *"
   workflow_dispatch:          # Actions sekmesinden manuel tetikleme için
 
 permissions:
