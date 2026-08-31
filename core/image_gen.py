@@ -241,10 +241,24 @@ def compose_layers(
         headline_bottom_y = panel_y + panel_h
 
     # --- Özet (açıklama) — BAŞLIĞIN HEMEN ALTINDA, ORTALANMIŞ panel, pop-in ---
-    summary_font = _font("Regular", 33)
-    summary_lines = _wrap_to_width(draw, summary, summary_font, max_text_w - 100)[:5]
+    # ÖNEMLİ: eskiden burada satırlar [:5] ile SERT kesiliyordu — özet 5 satıra
+    # sığmazsa fazlası SESSİZCE görünmezdi (kullanıcı şikayeti: "metin yarım
+    # kalmış"). Artık hiçbir kelime kaybolmuyor: önce varsayılan punto ile
+    # satırlara bölünüyor; sığmıyorsa (dikey alan yetmiyorsa) punto kademeli
+    # küçültülüp yeniden bölünüyor — metin her zaman TAM görünür.
+    summary_font_size = 33
+    min_summary_font_size = 22
+    available_bottom = CANVAS_H - 110  # alt bilgi (hesap adı) için ayrılan pay
+    summary_panel_top = headline_bottom_y + 24
+    while True:
+        summary_font = _font("Regular", summary_font_size)
+        summary_lines = _wrap_to_width(draw, summary, summary_font, max_text_w - 100)
+        line_h_s = int(summary_font_size * 1.33)
+        panel_h_check = len(summary_lines) * line_h_s + 40
+        if summary_panel_top + panel_h_check <= available_bottom or summary_font_size <= min_summary_font_size:
+            break
+        summary_font_size -= 2
     if summary_lines:
-        line_h_s = 44
         line_w = max(draw.textlength(line, font=summary_font) for line in summary_lines)
         panel_w = min(int(line_w) + 96, CANVAS_W - margin)
         panel_h = len(summary_lines) * line_h_s + 40
