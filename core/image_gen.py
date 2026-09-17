@@ -13,7 +13,7 @@ import math
 from pathlib import Path
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FONT_PATH = Path(__file__).resolve().parent.parent / "fonts" / "NotoSans-Variable.ttf"
 CANVAS_W, CANVAS_H = 1080, 1920
@@ -150,14 +150,39 @@ def compose_layers(
     canvas = Image.new("RGB", (CANVAS_W, CANVAS_H), cfg["bg_color"])
     draw = ImageDraw.Draw(canvas)
 
-    # --- Fotoğraf: ARTIK TÜM EKRANI kaplıyor (kullanıcı şikayeti: "resim üst
-    # kısımda, alt kısım boşluk gibi" — eskiden photo_height_ratio ~0.58 ile
-    # fotoğraf sadece üstteydi, altı düz lacivert dolguydu). _fit_focus_top
-    # oranı koruyarak kırpıp doldurur — asla GERİLMEZ/bozulmaz, sadece kadraj
-    # kırpılır (kalite kaybı yok).
+    # --- Fotoğraf: EKRAN ÜST/ALT %50-%50 İKİYE BÖLÜNÜYOR, aynı fotoğrafın
+    # İKİ KIRPMASI üst üste kullanılıyor. NEDEN: eskiden fotoğraf TEK PARÇA
+    # halinde 1080x1920'yi (oran 0.5625) kaplayacak şekilde kırpılıyordu; bu,
+    # tipik bir yatay haber fotoğrafından (ör. 1280x720, oran 1.78) sadece
+    # ORTADAKİ ~%32'lik dar bir dikey şeridi kullanıp bunu ~2.7 kat büyütüp
+    # bulanıklaştırıyordu (kullanıcı şikayeti: "resimler arka plana yayılınca
+    # kalitesiz duruyor, izlenme çok düşük"). Ekranı 1080x960'lık İKİ ayrı
+    # bölgeye ayırınca hedef oran 1.125'e çıkıyor, kaynağın ~%63'ü korunuyor
+    # ve büyütme oranı ~1.3x'e düşüyor — GÖRÜNÜR ŞEKİLDE daha net/keskin.
+    # Üst yarı zaten rozet+başlık+özet panelleriyle örtüleceği için kalitesi
+    # kritik değil, o yüzden aynı fotoğrafın aynı kırpması tekrar kullanılıyor.
     photo_h = CANVAS_H
-    fitted = _fit_focus_top(photo, (CANVAS_W, photo_h), cfg["photo_crop_focus_y"], zoom=zoom)
-    canvas.paste(fitted, (0, 0))
+    half_h = CANVAS_H // 2  # 960
+    half_fitted = _fit_focus_top(photo, (CANVAS_W, half_h), cfg["photo_crop_focus_y"], zoom=zoom)
+    # Üst yarı: AYNI kırpmanın bulanıklaştırılmış hali — Instagram'ın kendi
+    # "arka plan doldurma" tekniğine benzer. Bunu düz tekrar yerine tercih
+    # ediyoruz çünkü gerçek bir haber fotoğrafında (yüz/bina/sahne) üst-alt
+    # birebir aynı kareyi göstermek "aynı resim iki kez" gibi tuhaf durabilir;
+    # blur bunu bilinçli bir "arka plan" gibi gösterip bu hissi ortadan
+    # kaldırıyor. Zaten üstü rozet+başlık+özet panelleri kaplayacağı için
+    # bulanıklık/kalite kaybı önemsiz.
+    blurred_top = half_fitted.filter(ImageFilter.GaussianBlur(radius=28))
+    canvas.paste(blurred_top, (0, 0))                  # üst yarı (bulanık, metinle kaplanacak)
+    canvas.paste(half_fitted, (0, CANVAS_H - half_h))  # alt yarı (net "hero" fotoğraf)
+
+    # İki yarının birleştiği yerde ince bir ayraç çizgisi — aksi halde aynı
+    # fotoğrafın "tekrar başladığı" o nokta rastgele bir kesinti gibi durur;
+    # ince çizgi bunu KASITLI bir kart/şablon kırılımı gibi gösterir.
+    seam_h = 3
+    draw.rectangle(
+        [0, half_h - seam_h // 2, CANVAS_W, half_h + seam_h // 2],
+        fill=cfg.get("seam_color", cfg["badge_color"]),
+    )
 
     # Fotoğrafın TAMAMINA ÇOK hafif koyu ton — eskiden 0.30 idi ve fotoğrafı
     # gereksiz yere soluklaştırıyordu ("kalite bozulmadan tüm ekran" şikayeti).
