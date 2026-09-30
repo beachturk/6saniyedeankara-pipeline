@@ -38,14 +38,29 @@ def create_media_container(business_id: str, access_token: str, image_url: str, 
     return data["id"]
 
 
-def create_reels_container(business_id: str, access_token: str, video_url: str, caption: str) -> str:
+def create_reels_container(
+    business_id: str, access_token: str, video_url: str, caption: str,
+    thumb_offset_ms: int | None = None,
+) -> str:
+    """thumb_offset_ms: Instagram'ın feed/profil ızgarasında ve paylaşım
+    öncesi kapak resmi olarak göstereceği kareyi videonun kaçıncı
+    milisaniyesinden alacağını belirler. Belirtilmezse Meta'nın varsayılanı
+    videonun İLK karesidir — bizim şablonumuzda bu, rozet/başlık/özet
+    animasyonu henüz başlamadan önceki an olduğu için kapak resmi neredeyse
+    boş/metinsiz görünüyordu (düşük tıklanma/izlenme oranına katkısı olabilir
+    diye düşünüldü). Bu yüzden pipeline.py, tüm metnin tam yazılmış olduğu
+    videonun son saniyelerinden bir zaman damgası hesaplayıp buraya iletiyor.
+    """
     url = f"{GRAPH_BASE}/{business_id}/media"
-    data = _check(requests.post(url, data={
+    data = {
         "media_type": "REELS",
         "video_url": video_url,
         "caption": caption,
         "access_token": access_token,
-    }, timeout=60))
+    }
+    if thumb_offset_ms is not None:
+        data["thumb_offset"] = str(max(0, int(thumb_offset_ms)))
+    data = _check(requests.post(url, data=data, timeout=60))
     return data["id"]
 
 
@@ -89,8 +104,11 @@ def publish_image_post(business_id: str, access_token: str, image_url: str, capt
     return {"media_id": media_id, "permalink": permalink}
 
 
-def publish_reels_post(business_id: str, access_token: str, video_url: str, caption: str) -> dict:
-    creation_id = create_reels_container(business_id, access_token, video_url, caption)
+def publish_reels_post(
+    business_id: str, access_token: str, video_url: str, caption: str,
+    thumb_offset_ms: int | None = None,
+) -> dict:
+    creation_id = create_reels_container(business_id, access_token, video_url, caption, thumb_offset_ms)
     # Video işlenmesi görsele göre daha uzun sürebilir (Meta tarafında encode/validate).
     wait_until_ready(creation_id, access_token, timeout_s=240, interval_s=8)
     media_id = publish(business_id, access_token, creation_id)

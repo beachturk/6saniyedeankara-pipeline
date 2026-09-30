@@ -78,12 +78,21 @@ def generate(project_key: str) -> dict | None:
         image_cfg=cfg.image,
         output_path=output_path,
     )
+    video_duration_s = None
     if output_type == "video":
         video_cfg = cfg.raw.get("video", {})
+        max_duration_s = video_cfg.get("max_duration_s", 10.0)
+        # thumb_offset (Instagram kapak resmi) için videonun kaç saniye
+        # süreceğini publish() aşamasında da bilmemiz lazım - render_video ile
+        # BİREBİR AYNI fonksiyonla (video_gen.compute_duration) önceden
+        # hesaplıyoruz ki iki yerde de aynı sonucu versin.
+        video_duration_s = video_cfg.get("duration_s") or video_gen.compute_duration(
+            selection.summary, max_duration_s=max_duration_s,
+        )
         video_gen.render_video(
             **common_kwargs,
-            duration_s=video_cfg.get("duration_s"),  # None ise özet uzunluğuna göre otomatik hesaplanır
-            max_duration_s=video_cfg.get("max_duration_s", 10.0),
+            duration_s=video_duration_s,
+            max_duration_s=max_duration_s,
             fps=video_cfg.get("fps", video_gen.DEFAULT_FPS),
             sounds_dir=cfg.sounds_dir,  # projects/<proje>/sounds/*.mp3 -> rastgele arka plan sesi
         )
@@ -98,6 +107,8 @@ def generate(project_key: str) -> dict | None:
         "media_relative_path": str(output_path.relative_to(cfg.public_dir.parent.parent)),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    if video_duration_s is not None:
+        pending["video_duration_s"] = video_duration_s
     cfg.pending_json_path.write_text(json.dumps(pending, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[{project_key}] {'Video' if output_type == 'video' else 'Görsel'} üretildi: {output_path} (guid={chosen.guid})")
     print(f"[{project_key}] Seçim gerekçesi: {selection.reason}")
@@ -116,11 +127,21 @@ def publish(project_key: str) -> dict | None:
 
     ig = cfg.instagram
     if pending.get("output_type", "video") == "video":
+        # Kapak resmi (Instagram feed/profil ızgarasında görünen kare) videonun
+        # SON saniyelerinden seçiliyor - o ana kadar rozet+başlık+özet metninin
+        # TAMAMI yazılmış/görünür durumda oluyor (bkz. core/video_gen.py
+        # HOLD_AFTER_TYPING). İlk kare (Meta varsayılanı) aksine animasyon
+        # henüz başlamadan önceki neredeyse boş anı gösteriyordu.
+        thumb_offset_ms = None
+        video_duration_s = pending.get("video_duration_s")
+        if video_duration_s:
+            thumb_offset_ms = int(max(0.0, video_duration_s - 0.5) * 1000)
         result = publish_ig.publish_reels_post(
             business_id=ig["business_id"],
             access_token=ig["access_token"],
             video_url=media_url,
             caption=pending["caption"],
+            thumb_offset_ms=thumb_offset_ms,
         )
     else:
         result = publish_ig.publish_image_post(
