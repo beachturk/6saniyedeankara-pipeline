@@ -19,7 +19,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import filters, image_gen, llm, publish_ig, rss_fetch, state, video_gen
+from . import filters, html_scrape, image_gen, llm, publish_ig, rss_fetch, state, video_gen
 from .config import ProjectConfig, load_project
 
 
@@ -30,6 +30,13 @@ def _safe_filename(guid: str, ext: str) -> str:
 def _fetch_candidates(cfg: ProjectConfig) -> list[rss_fetch.NewsItem]:
     used = state.load_used_guids(cfg.state_csv_path)
     items = rss_fetch.fetch_all(cfg.rss_sources)
+    # RSS'i olmayan (ör. cankaya.bel.tr) kaynaklar için HTML scraper'lar -
+    # bkz. core/html_scrape.py. rss_fetch.fetch_all zaten kendi içinde
+    # tarihe göre sıralıyor; buraya eklenen scraped item'larla BİRLİKTE
+    # yeniden sıralamamız gerekiyor çünkü filters.prefilter sıralı geldiğini
+    # varsayıp limit'e göre kesiyor.
+    items += html_scrape.fetch_all(cfg.raw.get("html_sources", []))
+    items.sort(key=lambda it: it.published, reverse=True)
     max_age_hours = cfg.filters.get("max_age_hours", 36)
     limit = cfg.filters.get("candidate_limit", 10)
     return filters.prefilter(items, used, max_age_hours=max_age_hours, limit=limit)

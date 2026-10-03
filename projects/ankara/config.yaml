@@ -33,6 +33,16 @@ rss_sources:
   - key: sabahankara
     url: "https://www.sabah.com.tr/rss/ankara.xml"
 
+# Çankaya Belediyesi'nin resmi haber sayfasında RSS YOK (sadece düz HTML
+# liste). core/html_scrape.py bunun için özel/kırılgan bir scraper içeriyor
+# (bkz. o dosyanın başındaki uyarı). Diğer araştırılan RSS'siz kaynaklar
+# (Hürriyet/Sözcü/Sondakika ilçe sayfaları) kullanıcı kararıyla EKLENMEDİ -
+# zaten genel RSS kaynaklarından benzer haberler geliyor.
+html_sources:
+  - key: cankayabel
+    parser: cankaya_bel
+    url: "https://www.cankaya.bel.tr/haberler"
+
 filters:
   max_age_hours: 36
   candidate_limit: 10
