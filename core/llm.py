@@ -50,7 +50,7 @@ BASE_RULES = """Yerel haber sosyal medya editörüsün. Aday haberler (RSS) veri
    - summary: görsel altı panelde EN AZ 3 CÜMLE, ~180-260 karakter, 5 satıra
      sığmalı (tek cümlelik özet YETERSİZ).
    - caption: IG açıklaması, 2-3 cümle (150-220 karakter), sonunda 3-4
-     hashtag (#Ankara ve verilen proje hashtag'i şart).
+     hashtag (asagida verilen proje hashtag'i sart).
 
 SADECE şu JSON ile cevap ver, başka hiçbir metin/markdown ekleme:
 {"selected_guid": "<guid ya da null>", "badge": "...", "headline": "...", "summary": "...", "caption": "...", "reason": "<1 cümle gerekçe>"}
@@ -173,7 +173,7 @@ def generate_selection(
     candidates: list[NewsItem],
     llm_config: dict,
     project_extra_rules: str = "",
-    project_hashtag: str = "#Ankara",
+    project_hashtag: str = "#Haber",
 ) -> Selection:
     provider_key = llm_config.get("provider", "gemini")
     if provider_key not in _PROVIDERS:

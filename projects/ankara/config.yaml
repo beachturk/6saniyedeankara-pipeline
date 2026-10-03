@@ -1,6 +1,6 @@
-display_name: "6 Saniyede Ankara"
-handle: "@6saniyedeankara"
-hashtag: "#Ankara #6SaniyedeAnkara"
+display_name: "Saniyede Çankaya"
+handle: "@saniyedecankaya"
+hashtag: "#Çankaya #SaniyedeCankaya"
 
 output_type: video   # "video" (6 saniyelik Reels, marka adına uygun) | "image" (statik feed post)
 video:
@@ -9,6 +9,20 @@ video:
   max_duration_s: 10
   fps: 30
 
+# NOT (2026-10-03): Proje "6 Saniyede Ankara" -> "Saniyede Çankaya" olarak
+# daraltıldı, artık SADECE Çankaya ilçesini ilgilendiren haberler paylaşılıyor.
+# Aşağıdaki kaynaklar hâlâ Ankara-geneli RSS besliyor (Çankaya'ya özel RSS'i
+# olmayan kaynaklar) - ilçe filtresi mekanik değil, aşağıdaki extra_rules
+# üzerinden LLM seçim adımında uygulanıyor (bkz. core/filters.py docstring).
+# Araştırılan ama RSS'i OLMAYAN istenen kaynaklar (core/rss_fetch.py sadece
+# gerçek RSS/XML feed'leri okuyabiliyor - feedparser ile):
+#   - https://www.cankaya.bel.tr/haberler (RSS yok, düz HTML liste)
+#   - https://www.hurriyet.com.tr/ankara/cankaya-haberleri/ (RSS yok)
+#   - https://www.sozcu.com.tr/cankaya-t1792 (Sözcü'de coğrafi/ilçe bazlı RSS hiç yok)
+#   - https://www.sondakika.com/cankaya/ (RSS yok)
+#   - Instagram (@cankayasondakiika) / X (@cankaya_haber): RSS yok, otomatik
+#     çekim için resmi API gerekir ya da scraping gerekir (ToS riski) - bu
+#     pipeline'a eklenmedi.
 rss_sources:
   - key: haberler
     url: "https://rss.haberler.com/rssnew.aspx?kategori=ankara"
@@ -16,14 +30,24 @@ rss_sources:
     url: "https://www.haberankara.com/rss"
   - key: yeniankara
     url: "https://www.yeniankara.com.tr/export/rss"
+  - key: sabahankara
+    url: "https://www.sabah.com.tr/rss/ankara.xml"
 
 filters:
   max_age_hours: 36
   candidate_limit: 10
   extra_rules: |
-    - Sadece Ankara ili/ilçeleri veya doğrudan Ankara'yı ilgilendiren kurum/kişilerle
-      (ör. MSB, Dışişleri Bakanlığı açıklamaları) ilgili haberler seçilir.
-    - Ankara'ya özgü olmayan genel/ulusal haberler (yerel bağlantısı olmayan) ELENİR.
+    - SADECE Ankara'nın ÇANKAYA İLÇESİ ile doğrudan ilgili haberler seçilir
+      (olay Çankaya sınırları içinde geçmeli, ya da doğrudan Çankaya
+      Belediyesi/Çankaya'daki bir kurum/kişi ile ilgili olmalı).
+    - Haberin başlığında/özetinde "Çankaya" GEÇMİYORSA ve haberin Çankaya'da
+      geçtiği metinden ANLAŞILMIYORSA, bu haber SEÇİLMEZ - Ankara'nın diğer
+      ilçeleri (Keçiören, Yenimahalle, Mamak, Etimesgut, Sincan, vb.) veya
+      genel/ulusal haberler KESİNLİKLE ELENİR.
+    - Aday havuzunda Çankaya ile ilgili HİÇBİR haber yoksa, diğer Ankara
+      haberlerinden birini seçerek "en yakın" diye yetinme - selected_guid:
+      null dön ve hiçbir şey seçme. Bu turda paylaşım yapılmaması, alakasız
+      bir haber paylaşmaktan daha iyidir.
     - "Semicenk konserinde kavga" gibi görseli olmayan ya da dedikodu/magazin
       tonundaki içerikler tercih edilmemeli; ciddi yerel haber önceliklidir.
 
@@ -44,5 +68,11 @@ image:
   # sikayeti).
 
 instagram:
+  # NOT: Secret adlari hala *_ANKARA - bu klasor adi (projects/ankara) ile
+  # eslesiyor ve GitHub Actions bu secret adini klasor adindan otomatik
+  # turetiyor (bkz. .github/workflows/pipeline.yml). Ayni Instagram hesabi
+  # (sadece kullanici adi @saniyedecankaya olarak degisti), ayni token/ID -
+  # klasoru/secreti yeniden adlandirmak ekstra risksiz bir fayda saglamiyor,
+  # o yuzden dokunulmadi.
   business_id: "${IG_BUSINESS_ID_ANKARA}"
   access_token: "${IG_ACCESS_TOKEN_ANKARA}"
