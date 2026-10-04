@@ -64,19 +64,58 @@ def generate(project_key: str) -> dict | None:
         print(f"[{project_key}] Uygun aday yok (RSS boş ya da hepsi zaten paylaşılmış).")
         return None
 
-    selection = llm.generate_selection(
-        candidates,
-        cfg.llm,
-        project_extra_rules=cfg.filters.get("extra_rules", ""),
-        project_hashtag=cfg.raw.get("hashtag", "#Haber"),
-    )
-    if not selection.selected_guid:
-        print(f"[{project_key}] LLM uygun aday bulamadı. Sebep: {selection.reason}")
-        return None
+    # Görseli indirilemeyen (403/404/bozuk dosya) bir haber seçilirse tüm
+    # pipeline çöküyordu VE o haber hiç "kullanıldı" sayılmadığı için her
+    # çalışmada aynı haberde tekrar çökerdi. Şimdi: görseli doğrulanamayan
+    # haberi aday listesinden çıkarıp LLM seçimini (en fazla 3 kez) yeniden yap.
+    remaining = list(candidates)
+    selection = None
+    chosen = None
+    photo_url = None
+    for _attempt in range(3):
+        if not remaining:
+            break
+        selection = llm.generate_selection(
+            remaining,
+            cfg.llm,
+            project_extra_rules=cfg.filters.get("extra_rules", ""),
+            project_hashtag=cfg.raw.get("hashtag", "#Haber"),
+        )
+        if not selection.selected_guid:
+            print(f"[{project_key}] LLM uygun aday bulamadı. Sebep: {selection.reason}")
+            return None
 
-    chosen = next((it for it in candidates if it.guid == selection.selected_guid), None)
+        picked = next((it for it in remaining if it.guid == selection.selected_guid), None)
+        if picked is None:
+            print(f"[{project_key}] UYARI: LLM'in seçtiği guid aday listesinde yok: {selection.selected_guid}")
+            return None
+
+        # Gorsel kalitesi: once haberin kendi sayfasindaki og:image (genelde
+        # cok daha yuksek cozunurluklu), olmazsa/inmezse RSS'in image_url'i.
+        photo_options = []
+        hi_res = rss_fetch.fetch_higher_res_image(picked.link)
+        if hi_res:
+            photo_options.append(hi_res)
+        if picked.image_url and picked.image_url not in photo_options:
+            photo_options.append(picked.image_url)
+
+        working = None
+        for url in photo_options:
+            try:
+                image_gen.download_image(url)
+                working = url
+                break
+            except Exception as exc:  # noqa: BLE001
+                print(f"[{project_key}] UYARI: görsel indirilemedi ({url[:100]}): {exc}")
+
+        if working:
+            chosen, photo_url = picked, working
+            break
+        print(f"[{project_key}] '{picked.title[:70]}' görseli yok/indirilemiyor -> aday listesinden çıkarılıp yeniden seçiliyor.")
+        remaining = [it for it in remaining if it.guid != picked.guid]
+
     if chosen is None:
-        print(f"[{project_key}] UYARI: LLM'in seçtiği guid aday listesinde yok: {selection.selected_guid}")
+        print(f"[{project_key}] Görseli kullanılabilir aday bulunamadı, bu tur paylaşım yok.")
         return None
 
     output_type = cfg.raw.get("output_type", "video")  # "video" (Reels) | "image" (feed post)
@@ -89,7 +128,6 @@ def generate(project_key: str) -> dict | None:
     # aciyordu. Once haberin kendi sayfasindaki og:image'i (genelde cok daha
     # yuksek cozunurluklu) denenir; bulunamazsa RSS'in orijinal image_url'ine
     # geri duser.
-    photo_url = rss_fetch.fetch_higher_res_image(chosen.link) or chosen.image_url
 
     common_kwargs = dict(
         photo_url=photo_url,
