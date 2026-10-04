@@ -87,9 +87,16 @@ def fetch_cankaya_bel(
         date_m = _DATE_RE.search(after) or _DATE_RE.search(before)
         if date_m:
             try:
-                published = datetime(
-                    int(date_m.group(3)), int(date_m.group(2)), int(date_m.group(1)),
-                    tzinfo=timezone.utc,
+                # Sayfada sadece GÜN var, saat yok. 00:00 UTC alırsak bugünün
+                # haberi bile max_age (36 sa) süzgecinde "eski" kalıp RSS
+                # haberlerinin altına düşüyordu. Günün sonunu (TR 23:59 =
+                # 20:59 UTC) al, ama gelecekte olamaz -> şu an ile sınırla.
+                published = min(
+                    datetime(
+                        int(date_m.group(3)), int(date_m.group(2)), int(date_m.group(1)),
+                        20, 59, tzinfo=timezone.utc,
+                    ),
+                    now,
                 )
             except ValueError:
                 published = now

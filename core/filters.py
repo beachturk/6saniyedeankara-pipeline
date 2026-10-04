@@ -9,12 +9,44 @@ from datetime import datetime, timedelta, timezone
 from .rss_fetch import NewsItem
 
 
+_TR_FOLD = str.maketrans("çğıöşü", "cgiosu")
+
+
+def _fold(text: str) -> str:
+    """Türkçe-güvenli küçük harfe çevirme + aksan sadeleştirme (ÇANKAYA /
+    Çankaya / cankaya hepsi 'cankaya' olur). Python'ın varsayılan lower()'ı
+    'I'->'i' yapıp 'KIZILAY'ı 'kizilay' yaptığı için önce İ/I'yı elle çeviriyoruz."""
+    return (text or "").replace("İ", "i").replace("I", "ı").lower().translate(_TR_FOLD)
+
+
+def _matches_keywords(it: NewsItem, folded_keywords: list[str]) -> bool:
+    haystack = _fold(f"{it.title} {it.summary} {it.link}")
+    return any(k in haystack for k in folded_keywords)
+
+
 def prefilter(
     items: list[NewsItem],
     used_guids: set[str],
     max_age_hours: int = 36,
     limit: int = 10,
+    require_keywords: list[str] | None = None,
+    trusted_sources: set[str] | None = None,
 ) -> list[NewsItem]:
+    """require_keywords verilirse (ör. ["Çankaya", "Kızılay"]), başlık/özet/
+    link'inde bu kelimelerden HİÇBİRİ geçmeyen haberler `limit` kesmesinden
+    ÖNCE elenir. Neden: ilçe-özel projede aday havuzu ~50-150 genel Ankara
+    haberi; en yeni 10'u kesip sonra LLM'e 'bunlardan Çankaya olanı seç'
+    demek, Çankaya haberlerini daha eski oldukları için havuza hiç sokmuyordu.
+    trusted_sources'taki kaynaklar (ör. belediyenin kendi sitesi) zaten
+    tamamen yerel olduğu için keyword kontrolünden muaf."""
+    if require_keywords:
+        folded = [_fold(k) for k in require_keywords if k]
+        trusted = trusted_sources or set()
+        items = [
+            it for it in items
+            if it.source_key in trusted or _matches_keywords(it, folded)
+        ]
+
     def _already_used(it: NewsItem) -> bool:
         bare = it.guid.split(":", 1)[1] if ":" in it.guid else it.guid
         return it.guid in used_guids or bare in used_guids

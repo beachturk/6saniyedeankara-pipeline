@@ -39,7 +39,22 @@ def _fetch_candidates(cfg: ProjectConfig) -> list[rss_fetch.NewsItem]:
     items.sort(key=lambda it: it.published, reverse=True)
     max_age_hours = cfg.filters.get("max_age_hours", 36)
     limit = cfg.filters.get("candidate_limit", 10)
-    return filters.prefilter(items, used, max_age_hours=max_age_hours, limit=limit)
+    require_keywords = cfg.filters.get("require_keywords") or None
+    trusted_sources = set(cfg.filters.get("trusted_sources") or [])
+
+    # Teşhis logu (GitHub Actions'ta "neden içerik çıkmadı" sorusunu cevaplamak için)
+    from collections import Counter
+    print(f"[{cfg.key}] Çekilen toplam haber: {len(items)} "
+          f"| kaynak bazında: {dict(Counter(it.source_key for it in items))}")
+
+    candidates = filters.prefilter(
+        items, used, max_age_hours=max_age_hours, limit=limit,
+        require_keywords=require_keywords, trusted_sources=trusted_sources,
+    )
+    print(f"[aday] anahtar-kelime/tazelik/kullanılmamış filtresi sonrası aday sayısı: {len(candidates)}")
+    for it in candidates:
+        print(f"[aday]   {it.source_key} | {it.published.isoformat()} | {it.title[:90]}")
+    return candidates
 
 
 def generate(project_key: str) -> dict | None:

@@ -46,6 +46,31 @@ html_sources:
 filters:
   max_age_hours: 36
   candidate_limit: 10
+  # Mekanik ön-eleme (limit kesmesinden ÖNCE): başlık/özet/link'inde bu
+  # kelimelerden hiçbiri geçmeyen haber LLM'e hiç gitmez. Büyük/küçük harf ve
+  # Türkçe karakter farkı önemsiz. (2026-10-04: bu olmadan en yeni 10 genel
+  # Ankara haberi seçilip hepsi LLM'de eleniyor, Çankaya haberleri havuza
+  # giremiyordu.) Listeyi istediğiniz gibi düzenleyebilirsiniz; son karar yine
+  # aşağıdaki extra_rules'a göre LLM'de verilir.
+  require_keywords:
+    - Çankaya
+    - Kızılay
+    - Kavaklıdere
+    - Tunalı
+    - Çayyolu
+    - Ümitköy
+    - Balgat
+    - Bahçelievler
+    - Ayrancı
+    - Dikmen
+    - Sıhhiye
+    - Çukurambar
+    - Anıtkabir
+    - TBMM
+    - Atakule
+  # Zaten tamamen Çankaya'ya özel olan kaynaklar keyword kontrolünden muaf.
+  trusted_sources:
+    - cankayabel
   extra_rules: |
     - SADECE Ankara'nın ÇANKAYA İLÇESİ ile doğrudan ilgili haberler seçilir
       (olay Çankaya sınırları içinde geçmeli, ya da doğrudan Çankaya
