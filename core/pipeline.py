@@ -50,6 +50,7 @@ def _fetch_candidates(cfg: ProjectConfig) -> list[rss_fetch.NewsItem]:
     candidates = filters.prefilter(
         items, used, max_age_hours=max_age_hours, limit=limit,
         require_keywords=require_keywords, trusted_sources=trusted_sources,
+        trusted_max_age_hours=cfg.filters.get("trusted_max_age_hours"),
     )
     print(f"[aday] anahtar-kelime/tazelik/kullanılmamış filtresi sonrası aday sayısı: {len(candidates)}")
     for it in candidates:
@@ -80,6 +81,7 @@ def generate(project_key: str) -> dict | None:
             cfg.llm,
             project_extra_rules=cfg.filters.get("extra_rules", ""),
             project_hashtag=cfg.raw.get("hashtag", "#Haber"),
+            recent_titles=state.load_recent_titles(cfg.state_csv_path),
         )
         if not selection.selected_guid:
             print(f"[{project_key}] LLM uygun aday bulamadı. Sebep: {selection.reason}")

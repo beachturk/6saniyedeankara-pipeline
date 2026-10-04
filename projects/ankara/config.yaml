@@ -71,6 +71,8 @@ filters:
   # Zaten tamamen Çankaya'ya özel olan kaynaklar keyword kontrolünden muaf.
   trusted_sources:
     - cankayabel
+  # Güvenilir (yerel) kaynakların haberleri için tazelik penceresi (saat).
+  trusted_max_age_hours: 96
   extra_rules: |
     - SADECE Ankara'nın ÇANKAYA İLÇESİ ile doğrudan ilgili haberler seçilir
       (olay Çankaya sınırları içinde geçmeli, ya da doğrudan Çankaya

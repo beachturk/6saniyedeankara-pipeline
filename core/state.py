@@ -36,3 +36,16 @@ def append_row(path: Path, guid: str, date: str, title: str, instagram_url: str,
     with open(path, "a", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([guid, date, title, instagram_url, timestamp])
+
+
+def load_recent_titles(path: Path, n: int = 15) -> list[str]:
+    """state.csv'deki SON n paylaşımın başlıkları (en yeni sonda). LLM'e
+    'bunlarla aynı olayı anlatan haberi seçme' diyebilmek için kullanılır."""
+    if not path.exists():
+        return []
+    titles: list[str] = []
+    with open(path, "r", encoding="utf-8", newline="") as f:
+        for row in csv.reader(f):
+            if len(row) >= 3 and row[2].strip():
+                titles.append(row[2].strip())
+    return titles[-n:]

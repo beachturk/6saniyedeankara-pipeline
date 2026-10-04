@@ -31,6 +31,7 @@ def prefilter(
     limit: int = 10,
     require_keywords: list[str] | None = None,
     trusted_sources: set[str] | None = None,
+    trusted_max_age_hours: int | None = None,
 ) -> list[NewsItem]:
     """require_keywords verilirse (ör. ["Çankaya", "Kızılay"]), başlık/özet/
     link'inde bu kelimelerden HİÇBİRİ geçmeyen haberler `limit` kesmesinden
@@ -54,12 +55,20 @@ def prefilter(
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=max_age_hours)
 
+    # Belediye gibi yavaş yayın yapan, tamamen yerel kaynaklar için daha uzun
+    # tazelik penceresi (günde 1-2 haber çıkıyor; 36 sa içinde hiç çıkmayabiliyor).
+    trusted = trusted_sources or set()
+    trusted_cutoff = now - timedelta(hours=trusted_max_age_hours or max_age_hours)
+
+    def _fresh(it: NewsItem) -> bool:
+        return it.published >= (trusted_cutoff if it.source_key in trusted else cutoff)
+
     fresh_with_image = [
         it for it in items
         if not _already_used(it)
         and it.image_url
         and it.title
-        and it.published >= cutoff
+        and _fresh(it)
     ]
 
     if fresh_with_image:

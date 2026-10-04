@@ -71,11 +71,19 @@ def _extract_json(text: str) -> dict:
         raise
 
 
-def build_prompt(candidates: list[NewsItem], project_extra_rules: str, project_hashtag: str) -> str:
+def build_prompt(candidates: list[NewsItem], project_extra_rules: str, project_hashtag: str,
+                 recent_titles: list[str] | None = None) -> str:
     lines = [BASE_RULES]
     if project_extra_rules:
         lines.append(f"\nProjeye özel ek kurallar:\n{project_extra_rules}\n")
     lines.append(f"\nCaption'da mutlaka bulunması gereken proje hashtag'i: {project_hashtag}\n")
+    if recent_titles:
+        lines.append(
+            "\nDAHA ÖNCE PAYLAŞILAN son haberler. Bunlarla AYNI OLAYI/KONUYU anlatan "
+            "adayı (başka kaynaktan, farklı başlıkla bile olsa) SEÇME; yalnızca "
+            "gerçekten yeni bir gelişme içeren aday seçilebilir:\n"
+            + "\n".join(f"- {t}" for t in recent_titles) + "\n"
+        )
     lines.append("\nAday haberler:\n")
     for it in candidates:
         lines.append(
@@ -174,6 +182,7 @@ def generate_selection(
     llm_config: dict,
     project_extra_rules: str = "",
     project_hashtag: str = "#Haber",
+    recent_titles: list[str] | None = None,
 ) -> Selection:
     provider_key = llm_config.get("provider", "gemini")
     if provider_key not in _PROVIDERS:
@@ -181,7 +190,7 @@ def generate_selection(
     call_fn, default_model = _PROVIDERS[provider_key]
     model = llm_config.get("model", default_model)
 
-    prompt = build_prompt(candidates, project_extra_rules, project_hashtag)
+    prompt = build_prompt(candidates, project_extra_rules, project_hashtag, recent_titles)
     raw_text = call_fn(prompt, model)
     parsed = _extract_json(raw_text)
 
